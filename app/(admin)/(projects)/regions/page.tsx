@@ -1,0 +1,109 @@
+"use client";
+
+import React, {useEffect, useRef, useState} from 'react';
+import Image from "next/image";
+import Link from "next/link";
+import {DataTable} from "@/components/tables/projects/regions/data-table";
+import {columns} from "@/components/tables/projects/regions/column";
+import {CSVLink} from "react-csv";
+
+import {Button, buttonVariants} from "@/components/ui/button";
+import {cn} from "@/lib/utils";
+import {Plus} from "@phosphor-icons/react";
+import {TopNav} from "@/components/elements/top-nav";
+
+import {
+    Sheet,
+    SheetClose,
+    SheetContent,
+    SheetDescription,
+    SheetFooter,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet"
+import {Label} from "@/components/ui/label";
+import {Input} from "@/components/ui/input";
+import AddClientForm from "@/components/lib/forms/add-client-form";
+import AddServiceForm from "@/components/lib/forms/add-service-form";
+import AddRegionForm from "@/components/lib/forms/add-region-form";
+import {useQuery} from "@tanstack/react-query";
+import axios from "axios";
+import useAuthStore from "@/hooks/use-user";
+import useFetchData from "@/actions/use-api";
+import Loading from "@/app/(admin)/(projects)/loading";
+
+
+function ServicesPage() {
+
+    // Export to PDF
+    const targetRef = useRef(null);
+    const timestamp = new Date().toISOString().slice(0, 10);
+
+    const { isLoading, error, data } = useFetchData('/radar/region');
+
+    const regions = Array.isArray(data) ? data.reverse() : [];
+
+    if (isLoading) return <div> <Loading/> </div>;
+
+    return (
+        <div>
+            <div className='flex flex-col md:flex-row justify-between gap-6  mb-8'>
+                <div>
+                    <h2 className='font-heading text-2xl font-bold'> Regions </h2>
+                    <p className='text-muted-foreground'> View and manage all your regions in the system </p>
+                </div>
+
+                <div className='flex space-x-2 items-center'>
+                    {/*<Button variant="outline" className='space-x-1'*/}
+                    {/*        onClick={() => generatePDF(targetRef, {filename: `qudrive-requests-${timestamp}.pdf`})}>*/}
+                    {/*    <Image src='/images/pdf.svg' alt='logo' height={18} width={18} style={{objectFit: "cover"}}/>*/}
+                    {/*    <span>Save PDF</span>*/}
+                    {/*</Button>*/}
+
+                    {/*<CSVLink data={data} filename={`qudrive-requests-${timestamp}.csv`}>*/}
+                    {/*    <Button variant="outline" className='space-x-1'>*/}
+                    {/*        <Image src='/images/csv.svg' alt='logo' height={18} width={18}*/}
+                    {/*               style={{objectFit: "cover"}}/>*/}
+                    {/*        <span>Save CSV</span>*/}
+                    {/*    </Button>*/}
+                    {/*</CSVLink>*/}
+
+                    <Sheet>
+                        <SheetTrigger asChild>
+                    <Button
+                        className={cn(
+                            buttonVariants({variant: "default"}),
+                            "space-x-1"
+                        )}
+                    >
+                        <Plus className='h-4 w-4'/>
+                        <span> Add Region </span>
+                    </Button>
+                        </SheetTrigger>
+
+                        <SheetContent>
+                            <SheetHeader>
+                                <SheetTitle>Add Region </SheetTitle>
+                                <SheetDescription>
+                                    Use the form below to add a new region to the system.
+                                </SheetDescription>
+                            </SheetHeader>
+                            <div className="mt-6">
+                                <AddRegionForm />
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                </div>
+
+            </div>
+
+
+            <div>
+                <DataTable columns={columns} data={regions}/>
+            </div>
+        </div>
+    );
+}
+
+export default ServicesPage;
