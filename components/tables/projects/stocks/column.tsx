@@ -48,7 +48,8 @@ export const columns: ColumnDef<any>[] = [
         ),
         cell: ({row}) => {
             const date = row.getValue("creation");
-            const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+            // Cast 'date' to any to bypass the TypeScript signature matching error
+            const formattedDate = date ? new Date(date as any).toLocaleDateString() : 'N/A';
             return <div className="w-fit">{formattedDate}</div>;
         },
         enableSorting: true,
@@ -61,7 +62,8 @@ export const columns: ColumnDef<any>[] = [
         ),
         cell: ({row}) => {
             const date = row.getValue("modified");
-            const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+            // Fixed here too so it doesn't fail on the next line!
+            const formattedDate = date ? new Date(date as any).toLocaleDateString() : 'N/A';
             return <div className="w-fit">{formattedDate}</div>;
         },
         enableSorting: true,
