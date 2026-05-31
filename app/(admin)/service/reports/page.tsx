@@ -17,6 +17,7 @@ import FaultsReport from "@/components/pages/services/faults-report";
 import FaultsCausesReport from "@/components/pages/services/faults-causes-report";
 import RegionalCausesReport from "@/components/pages/services/regional-causes-report";
 import RegionalLinkReport from "@/components/pages/services/regional-link-report";
+import MaterialReport from "@/components/pages/services/material-report";
 
 export default function ReportsPage({
                                  searchParams,
@@ -44,7 +45,12 @@ export default function ReportsPage({
     const { isLoading:technicianLoading, error:technicianError, data:technicianData } = useFetchData('/maintenance/activeTechnician');
     const technicians = Array.isArray(technicianData) ? technicianData.reverse() : [];
 
-    const {
+  // Technician Material Report
+  const { isLoading:materialLoading, error:materialError, data:materialData } = useFetchData('/maintenance/activeTechnician');
+  const technicianMaterial = Array.isArray(materialData) ? materialData.reverse() : [];
+
+
+  const {
         active_user_count,
     } = technicians[0] || {}
 
@@ -102,6 +108,13 @@ export default function ReportsPage({
                     </div>
                     <TechnicianReport/>
                 </div>
+
+              <div className="space-y-4">
+                <div >
+                  <h2 className="text-lg font-bold">Generate Technician Material Report</h2>
+                </div>
+                <MaterialReport/>
+              </div>
 
                 <hr/>
 

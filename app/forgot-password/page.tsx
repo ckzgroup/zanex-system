@@ -51,7 +51,7 @@ export default function ForgotPassword() {
 
     async function onSubmit(data: FormData) {
         try {
-            await axios.post('https://qtask-v3-service.qtask.net:5559/api/users/reset', data);
+            await axios.post('https://k-task.ckzgroup.com/api/users/reset', data);
 
             setLoading(false);
             setIsSuccess(true);
@@ -76,8 +76,6 @@ export default function ForgotPassword() {
             setLoading(false);
         }
     }
-
-    console.log(form.formState.errors)
 
 
     return (
