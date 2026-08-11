@@ -7,7 +7,7 @@ import {siteConfig} from "@/config/site";
 import {cn} from "@/lib/utils";
 import {ThemeProvider} from "@/components/lib/theme-provider";
 import {Toaster} from "@/components/lib/toaster";
-
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 const fontSans = FontSans({
   subsets: ["latin"],
