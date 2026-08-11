@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import useAuthStore from "@/hooks/use-user";
 import Loading from "@/app/(admin)/(projects)/loading";
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface AdminLayoutProps {
     children: React.ReactNode;

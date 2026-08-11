@@ -46,16 +46,11 @@ export const columns: ColumnDef<any>[] = [
         header: ({column}) => (
             <DataTableColumnHeader column={column} title="Created"/>
         ),
-       cell: ({ row }) => {
-    const date = row.getValue("creation");
-    
-    // Type-cast 'date' explicitly to a string so the Date constructor accepts it
-    const formattedDate = date 
-        ? new Date(date as string).toLocaleDateString() 
-        : 'N/A';
-        
-    return <div className="w-fit">{formattedDate}</div>;
-},
+        cell: ({row}) => {
+            const date = row.getValue("creation");
+            const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+            return <div className="w-fit">{formattedDate}</div>;
+        },
         enableSorting: true,
         enableHiding: true,
     },
@@ -64,14 +59,11 @@ export const columns: ColumnDef<any>[] = [
         header: ({column}) => (
             <DataTableColumnHeader column={column} title="Modified"/>
         ),
-        cell: ({ row }) => {
-    const date = row.getValue("modified");
-    const formattedDate = date 
-        ? new Date(date as string).toLocaleDateString() 
-        : 'N/A';
-        
-    return <div className="w-fit">{formattedDate}</div>;
-},
+        cell: ({row}) => {
+            const date = row.getValue("modified");
+            const formattedDate = date ? new Date(date).toLocaleDateString() : 'N/A';
+            return <div className="w-fit">{formattedDate}</div>;
+        },
         enableSorting: true,
         enableHiding: true,
     },
