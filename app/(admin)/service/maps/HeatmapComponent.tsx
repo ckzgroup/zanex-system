@@ -213,7 +213,7 @@ const HeatmapComponent: React.FC = () => {
             zoom: 6.2
           }}
           style={{ width: '100%', height: '100%' }}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
+          mapStyle="mapbox://styles/mapbox/streets-v12"
         >
           {/* Render GeoJSON Source and Heatmap Layer */}
           <Source type="geojson" data={geojsonData}>
