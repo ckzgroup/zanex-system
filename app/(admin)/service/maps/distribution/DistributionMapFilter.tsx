@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useEffect, useMemo, useState } from "react";
-// Import from fixed package entry point
 import { Map, Marker } from 'react-map-gl/mapbox';
 import useFetchData from "@/actions/use-api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,15 +16,12 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 const DEFAULT_LAT = 0.04626;
 const DEFAULT_LNG = 37.65587;
 
-// Pin icon URL for the marker
 const PIN_ICON = 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
-
-// Default coordinates when no data is available
 const DEFAULT_CENTER = { lat: 0.1765, lng: 37.913 };
 
 const calculateCenter = (points: { lat: number; lng: number }[]): { lat: number; lng: number } => {
   if (points.length === 0) {
-    return { lat: DEFAULT_LAT, lng: DEFAULT_LNG };
+    return DEFAULT_CENTER;
   }
   const sum = points.reduce(
     (acc, point) => ({
@@ -49,49 +45,39 @@ const formatDate = (date: string | null): string => {
 const DistributionMapFilter: React.FC = () => {
   const [fromDate, setFromDate] = useState<string | null>(null);
   const [toDate, setToDate] = useState<string | null>(null);
-  const [selectedClient, setSelectedClient] = useState<number | string | null>(null);
-  const [selectedService, setSelectedService] = useState<number | string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
   const [selectedSlaStatus, setSelectedSlaStatus] = useState<string | null>(null);
   const [selectedTicketStatus, setSelectedTicketStatus] = useState<string | null>(null);
 
-  // Map viewport state setup
   const [viewport, setViewport] = useState({
     latitude: DEFAULT_CENTER.lat,
     longitude: DEFAULT_CENTER.lng,
     zoom: 7
   });
 
-  const [markers, setMarkers] = useState<any[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
 
-  const { data: all_data } = useFetchData("/maintenance/distributionMap");
-
-  // Fetch clients and services
   const { data: clientData } = useFetchData("/customers");
   const clients = Array.isArray(clientData) ? clientData.reverse() : [];
 
   const [searchTerm, setSearchTerm] = useState("");
-
   const filteredClients = clients.filter((client) =>
-    client.customer_name.toLowerCase().includes(searchTerm.toLowerCase())
+    client.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Fetch Services based on the selected customer
-  const { isLoading: serviceLoading, data: serviceData } = useSingleCustomer(
+  const { data: serviceData } = useSingleCustomer(
     "/radar/site/services",
     parseInt(selectedCustomerId || "0")
   );
   const services = Array.isArray(serviceData) ? serviceData.reverse() : [];
 
   const [serviceSearchTerm, setServiceSearchTerm] = useState("");
-
   const filteredServices = services.filter((service) =>
-    service.service_name.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+    service.service_name?.toLowerCase().includes(serviceSearchTerm.toLowerCase())
   );
 
-  // Fetch SITES based on the selected customer
   const { isLoading: sitesLoading, data: sitesData } = useSingleCustomer(
     "/radar/site/customer",
     parseInt(selectedCustomerId || "0")
@@ -100,7 +86,6 @@ const DistributionMapFilter: React.FC = () => {
 
   const company_id = useAuthStore((state) => state.user?.result.user_company_id);
 
-  // Fetch heatmap data
   const { data: heatmapData } = useDistributionMapFilter(
     "/maintenance/getMapDistributionByDate",
     //@ts-ignore
@@ -111,46 +96,83 @@ const DistributionMapFilter: React.FC = () => {
 
   const maps = Array.isArray(heatmapData) ? heatmapData.reverse() : [];
 
+  // 1. Safe Type-Matching Filter with Normalized Strings
   const filteredMaps = useMemo(() => {
     return maps.filter((map: any) => {
-      const serviceMatch = selectedService ? map.service_type_id === parseInt(selectedService.toString()) : true;
-      const customerMatch = selectedCustomerId ? map.customer_id === parseInt(selectedCustomerId.toString()) : true;
-      const ticketStatusMatch = selectedTicketStatus ? map.ticket_status === selectedTicketStatus : true;
-      const siteMatch = selectedSite ? map.site_id === parseInt(selectedSite.toString()) : true;
-      const slaStatusMatch = selectedSlaStatus ? map.ticket_state?.toLowerCase() === selectedSlaStatus.toLowerCase() : true;
+      const rawCustomerId = map.customer_id ?? map.client_id ?? map.cust_id;
+      const rawServiceId = map.service_type_id ?? map.service_id ?? map.service_type;
+      const rawSiteId = map.site_id ?? map.customer_site_id;
 
-      return serviceMatch && customerMatch && ticketStatusMatch && siteMatch && slaStatusMatch;
+      const customerMatch = selectedCustomerId
+        ? rawCustomerId !== undefined && rawCustomerId !== null && String(rawCustomerId) === String(selectedCustomerId)
+        : true;
+
+      const serviceMatch = selectedService
+        ? rawServiceId !== undefined && rawServiceId !== null && String(rawServiceId) === String(selectedService)
+        : true;
+
+      const siteMatch = selectedSite
+        ? rawSiteId !== undefined && rawSiteId !== null && String(rawSiteId) === String(selectedSite)
+        : true;
+
+      // Normalizes hyphens, underscores, and spacing for status matching
+      const ticketStatusMatch = selectedTicketStatus
+        ? map.ticket_status?.toString().toLowerCase().replace(/[-_]/g, " ").trim() ===
+        selectedTicketStatus.toLowerCase().replace(/[-_]/g, " ").trim()
+        : true;
+
+      const slaStatusMatch = selectedSlaStatus
+        ? map.ticket_state?.toString().toLowerCase().trim() === selectedSlaStatus.toLowerCase().trim()
+        : true;
+
+      return customerMatch && serviceMatch && siteMatch && ticketStatusMatch && slaStatusMatch;
     });
   }, [maps, selectedService, selectedCustomerId, selectedTicketStatus, selectedSite, selectedSlaStatus]);
 
+  // 2. Compute unique map markers directly with useMemo
+  const markers = useMemo(() => {
+    return filteredMaps
+      .filter((map: any) => !isNaN(parseFloat(map.lat)) && !isNaN(parseFloat(map.lon)))
+      .map((map: any, index: number) => ({
+        // Index suffix guarantees key uniqueness across rendering cycles
+        id: map.ticket_no ? `${map.ticket_no}-${index}` : `${map.lat}-${map.lon}-${map.customer_id}-${index}`,
+        lat: parseFloat(map.lat),
+        lng: parseFloat(map.lon),
+        service_title: map.service_title,
+        service_id: map.service_type_id || map.service_id,
+        comment: map.ticket_action_description,
+        image: map.ticket_service_image,
+        customer_name: map.customer_name,
+        customer_id: map.customer_id,
+        site_name: map.site_name,
+        ticket_update_time: map.ticket_update_time,
+        user_name: map.user_name,
+        ticket_no: map.ticket_no,
+        ticket_action_description: map.ticket_action_description,
+      }));
+  }, [filteredMaps]);
+
+  // 3. Recalculate viewport safely when marker locations shift
+  const centerKey = useMemo(() => {
+    return markers.map((m) => `${m.lat},${m.lng}`).join("|");
+  }, [markers]);
+
   useEffect(() => {
-    const mapPoints = filteredMaps.map((map: any) => ({
-      lat: parseFloat(map.lat),
-      lng: parseFloat(map.lon),
-      id: map.ticket_no,
-      service_title: map.service_title,
-      service_id: map.service_type_id,
-      comment: map.ticket_action_description,
-      image: map.ticket_service_image,
-      customer_name: map.customer_name,
-      customer_id: map.customer_id,
-      ticket_update_time: map.ticket_update_time,
-      user_name: map.user_name,
-      ticket_no: map.ticket_no,
-      ticket_action_description: map.ticket_action_description,
-    }));
-
-    if (JSON.stringify(mapPoints) !== JSON.stringify(markers)) {
-      setMarkers(mapPoints);
-      const newCenter = mapPoints.length > 0 ? calculateCenter(mapPoints) : DEFAULT_CENTER;
-
-      setViewport(prev => ({
+    if (markers.length > 0) {
+      const newCenter = calculateCenter(markers);
+      setViewport((prev) => ({
         ...prev,
         latitude: newCenter.lat,
-        longitude: newCenter.lng
+        longitude: newCenter.lng,
+      }));
+    } else {
+      setViewport((prev) => ({
+        ...prev,
+        latitude: DEFAULT_CENTER.lat,
+        longitude: DEFAULT_CENTER.lng,
       }));
     }
-  }, [filteredMaps]);
+  }, [centerKey]);
 
   const handleMarkerClick = (ticket: any) => {
     setSelectedTicket(ticket);
@@ -158,13 +180,13 @@ const DistributionMapFilter: React.FC = () => {
 
   const resetCustomFilters = () => {
     setSelectedCustomerId(null);
-    setSelectedClient(null);
     setSelectedService(null);
     setSelectedSite(null);
     setSelectedTicketStatus(null);
     setSelectedSlaStatus(null);
     setSearchTerm("");
     setServiceSearchTerm("");
+    setSelectedTicket(null);
   };
 
   const IMAGE = process.env.NEXT_PUBLIC_IMAGES + '/images/';
@@ -205,14 +227,14 @@ const DistributionMapFilter: React.FC = () => {
           {/* Customer Selector */}
           <div className="space-y-2">
             <h4 className="text-base font-semibold">Customer</h4>
-            <Select onValueChange={(value) => {
-              setSelectedCustomerId(value);
-              setSelectedClient(value);
-              setSelectedService(null);
-              setSelectedSite(null);
-              setSelectedTicketStatus(null);
-              setSelectedSlaStatus(null);
-            }}>
+            <Select
+              value={selectedCustomerId || ""}
+              onValueChange={(value) => {
+                setSelectedCustomerId(value);
+                setSelectedService(null);
+                setSelectedSite(null);
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Choose Customer" />
               </SelectTrigger>
@@ -237,7 +259,10 @@ const DistributionMapFilter: React.FC = () => {
           {/* Service Selector */}
           <div className="space-y-2">
             <h4 className="text-base font-semibold">Service</h4>
-            <Select onValueChange={(value) => setSelectedService(value)}>
+            <Select
+              value={selectedService || ""}
+              onValueChange={(value) => setSelectedService(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select Service" />
               </SelectTrigger>
@@ -262,23 +287,25 @@ const DistributionMapFilter: React.FC = () => {
           {/* Site Selector */}
           <div className="space-y-2">
             <h4 className="text-base font-semibold">Site</h4>
-            <Select onValueChange={(value) => setSelectedSite(value)} disabled={!selectedCustomerId}>
+            <Select
+              value={selectedSite || ""}
+              onValueChange={(value) => setSelectedSite(value)}
+              disabled={!selectedCustomerId}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select Site" />
               </SelectTrigger>
               <SelectContent>
                 {sitesLoading ? (
                   <p className="p-2 text-sm text-muted-foreground">Loading sites...</p>
+                ) : sites.length > 0 ? (
+                  sites.map((site) => (
+                    <SelectItem key={site.site_id} value={`${site.site_id}`}>
+                      {site.site_name}
+                    </SelectItem>
+                  ))
                 ) : (
-                  sites.length > 0 ? (
-                    sites.map((site) => (
-                      <SelectItem key={site.site_id} value={`${site.site_id}`}>
-                        {site.site_name}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <p className="p-2 text-sm text-muted-foreground">No sites available</p>
-                  )
+                  <p className="p-2 text-sm text-muted-foreground">No sites available</p>
                 )}
               </SelectContent>
             </Select>
@@ -287,7 +314,10 @@ const DistributionMapFilter: React.FC = () => {
           {/* SLA Status Selector */}
           <div className="space-y-2">
             <h4 className="text-base font-semibold">SLA Status</h4>
-            <Select onValueChange={(value) => setSelectedSlaStatus(value)}>
+            <Select
+              value={selectedSlaStatus || ""}
+              onValueChange={(value) => setSelectedSlaStatus(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select SLA Status" />
               </SelectTrigger>
@@ -301,7 +331,10 @@ const DistributionMapFilter: React.FC = () => {
           {/* Ticket Status Selector */}
           <div className="space-y-2">
             <h4 className="text-base font-semibold">Ticket Status</h4>
-            <Select onValueChange={(value) => setSelectedTicketStatus(value)}>
+            <Select
+              value={selectedTicketStatus || ""}
+              onValueChange={(value) => setSelectedTicketStatus(value)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select Ticket Status" />
               </SelectTrigger>
@@ -327,18 +360,18 @@ const DistributionMapFilter: React.FC = () => {
         </div>
       </div>
 
-      {/* Map Canvas viewport view wrapper */}
+      {/* Map View */}
       <div className="relative h-[80vh] w-[72vw] overflow-hidden rounded-lg border">
         <Map
           mapboxAccessToken={MAPBOX_TOKEN}
           {...viewport}
-          onMove={evt => setViewport(evt.viewState)}
+          onMove={(evt) => setViewport(evt.viewState)}
           style={{ width: '100%', height: '100%' }}
           mapStyle="mapbox://styles/mapbox/streets-v12"
         >
-          {markers.map((marker, index) => (
+          {markers.map((marker) => (
             <Marker
-              key={marker.id || index}
+              key={`marker-${marker.id}`}
               latitude={marker.lat}
               longitude={marker.lng}
               anchor="center"
@@ -357,7 +390,7 @@ const DistributionMapFilter: React.FC = () => {
         </Map>
       </div>
 
-      {/* Ticket Information Panel */}
+      {/* Ticket Details Panel */}
       {selectedTicket && (
         <div className="ticket-details p-6 bg-accent border rounded-md shadow-md mt-4 w-[90%]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -380,7 +413,7 @@ const DistributionMapFilter: React.FC = () => {
                       <DialogTrigger asChild>
                         <img
                           src={`${IMAGE}${selectedTicket.image}`}
-                          alt="reference attachment look preview"
+                          alt="reference attachment preview"
                           className="w-52 h-64 object-cover hover:cursor-pointer rounded-md"
                         />
                       </DialogTrigger>
